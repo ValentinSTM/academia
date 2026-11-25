@@ -32,6 +32,7 @@ const TX={
   showText:['Arată textul (ca să corectezi)','Vis teksten (til at rette)'],
   goodJob:['Godt arbejde! Nu kan du rette din diktat.','Godt arbejde! Nu kan du rette din diktat.'],
   voice:['Vocea daneză','Dansk stemme'], speed:['Viteza','Tempo'],
+  vDefault:['⭐ Vocea din setările telefonului (recomandat)','⭐ Telefonens stemme fra Indstillinger (anbefalet)'],
   vTest:['Apasă ▶ ca să testezi vocea.','Tryk ▶ for at teste stemmen.'],
   vOk:['✅ Vocea daneză merge!','✅ Den danske stemme virker!'],
   vFail:['Nu s-a auzit nimic.','Der kom ingen lyd.'],
@@ -88,7 +89,7 @@ if('speechSynthesis' in window){loadVoices();try{speechSynthesis.addEventListene
   [300,1000,2500,5000].forEach(ms=>setTimeout(onVoices,ms));}  // pe Android lista de voci vine uneori târziu
 function dkSay(txt,rate,cb,mode){
   try{const ss=window.speechSynthesis;if(!ss){cb&&cb(false);return;}
-    const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=voices.find(x=>x.name===P.voice)||voices[0];
+    const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=P.voice?voices.find(x=>x.name===P.voice):null; // fără alegere → vocea aleasă în setările telefonului
       // „sys”: fără limbă setată → telefonul folosește limba lui implicită de citire (la ea: dansk)
       if(v)UT.voice=v;const m=mode||P.lmode||'da';if(v)UT.lang=v.lang.replace('_','-');else if(m==='da')UT.lang='da-DK';
       UT.rate=rate||P.rate;
@@ -139,7 +140,7 @@ let vState='',vErr='';
 function diag(){let all=0;try{all=speechSynthesis.getVoices().length;}catch(e){}const cv=(navigator.userAgent.match(/Chrome\/(\d+)/)||[])[1]||'?',av=(navigator.userAgent.match(/Android ([\d.]+)/)||[])[1]||'?';
   return `<div class="muted" style="font-size:12px;margin-top:6px">🔧 Android ${esc(av)} · Chrome ${esc(cv)} · voci/stemmer: ${all} (da: ${voices.length}) · ${esc(vErr||'-')}<br>${(()=>{try{return speechSynthesis.getVoices().map(v=>esc(v.lang+' '+v.name)).join(' | ');}catch(e){return '';}})()}</div>`;}
 function voiceInner(){
-  return `<b>🔊 ${T('voice')}</b>${voices.length?`<select id="dkVoice" style="width:100%;font-size:16px;padding:8px;margin:6px 0;border-radius:10px">${voices.map(v=>`<option ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:''}
+  return `<b>🔊 ${T('voice')}</b>${voices.length?`<select id="dkVoice" style="width:100%;font-size:16px;padding:8px;margin:6px 0;border-radius:10px"><option value="" ${P.voice?'':'selected'}>${T('vDefault')}</option>${voices.map(v=>`<option value="${esc(v.name)}" ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:''}
    <p id="dkVMsg" style="margin:6px 0;${vState==='fail'?'color:var(--bad)':''}">${vState==='ok'?T('vOk'):vState==='fail'?T('vFail')+' '+T('noVoice'):T('vTest')}</p>
    <div class="row"><span>${T('speed')}</span><input type="range" id="dkRate" min=".55" max="1.05" step=".05" value="${P.rate}" style="flex:1"><button class="btn sec sm" onclick="dkSayTest()">▶</button></div>${vState==='fail'?diag():''}`;
 }

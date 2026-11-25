@@ -193,7 +193,7 @@ function check(){
   const a=document.getElementById('dkAns'),v=a.value.trim().replace(/\s+/g,' ');if(!v||checked)return;
   const w=list[idx],fb=document.getElementById('dkFb'),key=w.w.toLowerCase();
   const exact=v===w.w||(!PROPER.has(key)&&v.toLowerCase()===key);
-  if(exact){fb.className='fb good';fb.innerHTML=`✅ ${T('right')} <b style="font-size:22px">${esc(w.w)}</b>`;if(first){right++;if(P.hard[key]){P.hard[key].c--;if(P.hard[key].c<=0)delete P.hard[key];saveP();}}
+  if(exact){fb.className='fb good';fb.innerHTML=`✅ ${T('right')} <b style="font-size:22px">${esc(w.w)}</b>`;if(first){right++;if(P.hard[key]){P.hard[key].c--;if(P.hard[key].c<=0){delete P.hard[key];if(!Object.keys(P.hard).length)P.hardCleared=true;}saveP();}}
     checked=true;try{sound&&sound('ok');}catch(e){}return;}
   const capOnly=v.toLowerCase()===key;
   if(first){first=false;if(!wrong.includes(w))wrong.push(w);P.hard[key]={w:w.w,n:w.n,s:w.s,c:2};saveP();
@@ -202,10 +202,20 @@ function check(){
 }
 function next(){if(idx<list.length-1){idx++;showWord();}else finish();}
 function finish(){
-  stop();let st=0;
-  if((mode==='dict'&&curD)||mode==='mix'){const k=mode==='mix'?'mix-'+P.level:curD.n+'-'+P.level;P.best[k]=Math.max(P.best[k]||0,right);saveP();
-    st=right;try{if(st&&typeof S!=='undefined'){S.stars+=st;save();updateHeader();}}catch(e){}}
+  stop();let st=0,chest=false;const perfect=!wrong.length&&right===list.length&&list.length>0;
+  P.total=(P.total||0)+right;P.tests=(P.tests||0)+1;
+  const today=typeof todayStr==='function'?todayStr():new Date().toISOString().slice(0,10);
+  P.days=P.days||[];if(!P.days.includes(today))P.days.push(today);
+  if(mode==='mix'&&perfect){if(list.length>=20)P.mix20=true;if(mixN===0)P.mixAll=true;}
+  if((mode==='dict'&&curD)||mode==='mix'){const k=mode==='mix'?'mix-'+P.level:curD.n+'-'+P.level;P.best[k]=Math.max(P.best[k]||0,right);
+    st=right;}
+  try{if(typeof S!=='undefined'){S.stars+=st;if(!S.days.includes(today))S.days.push(today);
+    // un cufăr cu o surpriză pentru prima dictare terminată din zi (ca la jurnalul de citit)
+    if(P.chestDay!==today&&(mode==='dict'||mode==='mix')&&typeof queueChests==='function'){P.chestDay=today;queueChests(perfect);chest=pendingChests.length>0;}
+    save();updateHeader();}}catch(e){}
+  saveP();try{checkAch();}catch(e){}
   pane().innerHTML=`<h2 style="margin:6px 0">${T('score',right,list.length)}</h2>${st?`<p style="font-size:22px;font-weight:900">${T('stars',st)}</p>`:''}
+   ${chest?`<div id="chestBox" style="text-align:center;margin:10px 0">${chestBoxHTML()}</div>`:''}
    ${wrong.length?`<p>${T('practiceWrong')}:</p><p style="font-size:20px;font-weight:800">${wrong.map(w=>esc(w.w)).join(' · ')}</p>
    <div class="row"><button class="btn" onclick="dkRetry()">${T('practiceWrong')}</button><button class="btn sec" onclick="dkRestart()">${T('restart')}</button></div>`
    :`<p style="font-size:20px">🎉 ${T('allRight')}</p><button class="btn sec" onclick="dkRestart()">${T('restart')}</button>`}`;
@@ -243,6 +253,29 @@ window.dkRep=sayPhrase;
 window.dkPrev=()=>{if(p>0){p--;drawFull();sayPhrase();}};
 window.dkNextP=()=>{if(p<curD.phrases.length-1){p++;drawFull();sayPhrase();}else{showText=true;drawFull();dkSay(T('goodJob'));}};
 
+/* ---------- trofee (apar în Camera trofeelor, lângă celelalte) ---------- */
+const ICONS={1:'🦊',2:'🐇',3:'🐓',4:'🐭',5:'🐿️',6:'🦔',7:'🦦',8:'🐦',9:'🐟',10:'🌤️',11:'🌊',12:'🦢'};
+function dkStreak(){const set=new Set(P.days||[]);let n=0;const d=new Date();const f=x=>x.toISOString().slice(0,10);if(!set.has(f(d)))d.setDate(d.getDate()-1);while(set.has(f(d))){n++;d.setDate(d.getDate()-1);}return n;}
+function perfect(n,l){if(!D)return false;const x=D.dictations.find(d=>d.n===n);if(!x)return false;const tot=x.words.filter(w=>w.l===l).length;return tot>0&&P.best[n+'-'+l]===tot;}
+function dkAch(){
+  const ro=!DA(),A=(r,d)=>ro?r:d;
+  const L=[
+    ['dk_first','📝',A('Prima dictare','Første diktat'),()=>(P.tests||0)>=1],
+    ['dk_perf1','🏅',A('Prima dictare perfectă','Første perfekte diktat'),()=>Object.keys(P.best).some(k=>{const[a,b]=k.split('-');return a!=='mix'&&perfect(+a,+b);})],
+    ['dk_w100','💯',A('100 de cuvinte corecte','100 rigtige ord'),()=>(P.total||0)>=100],
+    ['dk_w500','📚',A('500 de cuvinte corecte','500 rigtige ord'),()=>(P.total||0)>=500],
+    ['dk_s3','🔥',A('Dictare 3 zile la rând','Diktat 3 dage i træk'),()=>dkStreak()>=3],
+    ['dk_s5','🔥',A('Dictare 5 zile la rând','Diktat 5 dage i træk'),()=>dkStreak()>=5],
+    ['dk_s7','🗓️',A('Dictare 7 zile la rând','Diktat 7 dage i træk'),()=>dkStreak()>=7],
+    ['dk_mix20','🎲',A('20 din 20 la testul amestecat','20 af 20 i blandet test'),()=>!!P.mix20],
+    ['dk_mixall','🌟',A('Toate cuvintele perfect la testul amestecat','Alle ord perfekt i blandet test'),()=>!!P.mixAll],
+    ['dk_hard','💪',A('A învins cuvintele grele','Besejrede de svære ord'),()=>!!P.hardCleared]];
+  if(D)D.dictations.forEach(x=>L.push(['dk_d'+x.n,ICONS[x.n]||'📝',A(`Maestra dictării: ${x.title}`,`Diktatmester: ${x.title}`),()=>[1,2,3].some(l=>perfect(x.n,l))]));
+  [1,2,3].forEach(l=>L.push(['dk_lvl'+l,'🏆',A(`Toate dictările perfecte – nivel ${l}`,`Alle diktater perfekte – ${l}-ord`),()=>!!D&&D.dictations.every(x=>perfect(x.n,l))]));
+  return L;
+}
+if(typeof achList==='function'){const _al=achList;window.achList=function(){const l=_al.apply(this,arguments);try{return l.concat(dkAch());}catch(e){return l;}};}
+
 /* ---------- legături globale ---------- */
 window.dkList=()=>{showText=false;renderList();};
 window.dkOpen=openD;
@@ -255,6 +288,6 @@ window.dkSayTest=()=>{const txt='Hej! Jeg læser diktaten op for dig.';vErr='';
 window.openDiktat=()=>{go('diktat');loadData();if(D){renderList();refresh();}else renderLock();};
 function homeLabel(){const a=document.getElementById('bDkT'),b=document.getElementById('bDkS');if(a)a.textContent=T('btn');if(b)b.textContent=T('btnSub');}
 if(typeof renderHome==='function'){const _rh=renderHome;window.renderHome=function(){_rh.apply(this,arguments);homeLabel();};}
-homeLabel();
+loadData();homeLabel();
 const st=document.createElement('style');st.textContent='.dkx{color:var(--bad);text-decoration:underline}#dkBox .chip{min-height:44px}#dkBox input[type=text]{user-select:text;-webkit-user-select:text}';document.head.appendChild(st);
 })();

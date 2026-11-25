@@ -32,6 +32,9 @@ const TX={
   showText:['Arată textul (ca să corectezi)','Vis teksten (til at rette)'],
   goodJob:['Godt arbejde! Nu kan du rette din diktat.','Godt arbejde! Nu kan du rette din diktat.'],
   voice:['Vocea daneză','Dansk stemme'], speed:['Viteza','Tempo'],
+  vTest:['Apasă ▶ ca să testezi vocea.','Tryk ▶ for at teste stemmen.'],
+  vOk:['✅ Vocea daneză merge!','✅ Den danske stemme virker!'],
+  vFail:['Nu s-a auzit nimic.','Der kom ingen lyd.'],
   noVoice:['Nu am găsit o voce daneză pe telefon. Android: Setări → Accesibilitate → Text în vorbire → Google → descarcă „Dansk”. iPhone: Setări → Accesibilitate → Conținut vorbit → Voci → Dansk → „Sara (Îmbunătățită)”.','Der er ingen dansk stemme på telefonen. Android: Indstillinger → Hjælpefunktioner → Tekst til tale → Google → hent »Dansk«. iPhone: Indstillinger → Tilgængelighed → Oplæst indhold → Stemmer → Dansk → »Sara (forbedret)«.'],
   back:['⬅ Înapoi','⬅ Tilbage'], tips:['La ce să fii atentă','Pas på'], meaning:['În română','På rumænsk'],
   stars:n=>[`+${n} ⭐`,`+${n} ⭐`]
@@ -80,10 +83,14 @@ const note=w=>(D&&D.notes[w.toLowerCase()])||{ro:'',tips:[]};
 let voices=[],UT=null;
 function vscore(v){let s=0;if(/natural|neural|online/i.test(v.name))s+=4;if(/enhanced|premium|forbedret|siri/i.test(v.name))s+=3;if(/google/i.test(v.name))s+=1;if(/da[-_]dk/i.test(v.lang))s+=1;return s;}
 function loadVoices(){try{voices=speechSynthesis.getVoices().filter(v=>/^da/i.test(v.lang)).sort((a,b)=>vscore(b)-vscore(a));}catch(e){voices=[];}}
-if('speechSynthesis' in window){loadVoices();try{speechSynthesis.addEventListener('voiceschanged',loadVoices);}catch(e){}}
-function dkSay(txt,rate){
-  try{const ss=window.speechSynthesis;if(!ss)return;
-    const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=voices.find(x=>x.name===P.voice)||voices[0];if(v)UT.voice=v;UT.lang=v?v.lang:'da-DK';UT.rate=rate||P.rate;ss.resume();ss.speak(UT);};
+function onVoices(){const n=voices.length;loadVoices();if(voices.length!==n&&document.getElementById('dkVoiceBox'))drawVoice();}
+if('speechSynthesis' in window){loadVoices();try{speechSynthesis.addEventListener('voiceschanged',onVoices);}catch(e){}
+  [300,1000,2500,5000].forEach(ms=>setTimeout(onVoices,ms));}  // pe Android lista de voci vine uneori târziu
+function dkSay(txt,rate,cb){
+  try{const ss=window.speechSynthesis;if(!ss){cb&&cb(false);return;}
+    const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=voices.find(x=>x.name===P.voice)||voices[0];if(v)UT.voice=v;UT.lang=v?v.lang.replace('_','-'):'da-DK';UT.rate=rate||P.rate;
+      if(cb){let ok=false;UT.onstart=()=>{ok=true;cb(true);};UT.onerror=e=>{if(!ok&&e.error!=='interrupted'&&e.error!=='canceled')cb(false,e.error);};setTimeout(()=>{if(!ok)cb(false);},4000);}
+      ss.resume();ss.speak(UT);};
     if(ss.speaking||ss.pending){ss.cancel();setTimeout(go,150);}else go();
   }catch(e){}
 }
@@ -125,12 +132,14 @@ function renderList(){
   ${voiceBox()}`;
   bindVoice();
 }
-function voiceBox(){
-  loadVoices();
-  return `<div style="margin-top:16px;padding:12px;border:2px dashed #e3dbff;border-radius:14px;font-size:15px">
-   <b>🔊 ${T('voice')}</b>${voices.length?`<select id="dkVoice" style="width:100%;font-size:16px;padding:8px;margin:6px 0;border-radius:10px">${voices.map(v=>`<option ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:`<p class="muted" style="margin:6px 0">${T('noVoice')}</p>`}
-   <div class="row"><span>${T('speed')}</span><input type="range" id="dkRate" min=".55" max="1.05" step=".05" value="${P.rate}" style="flex:1"><button class="btn sec sm" onclick="dkSayTest()">▶</button></div></div>`;
+let vState='';
+function voiceInner(){
+  return `<b>🔊 ${T('voice')}</b>${voices.length?`<select id="dkVoice" style="width:100%;font-size:16px;padding:8px;margin:6px 0;border-radius:10px">${voices.map(v=>`<option ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:''}
+   <p id="dkVMsg" style="margin:6px 0;${vState==='fail'?'color:var(--bad)':''}">${vState==='ok'?T('vOk'):vState==='fail'?T('vFail')+' '+T('noVoice'):T('vTest')}</p>
+   <div class="row"><span>${T('speed')}</span><input type="range" id="dkRate" min=".55" max="1.05" step=".05" value="${P.rate}" style="flex:1"><button class="btn sec sm" onclick="dkSayTest()">▶</button></div>`;
 }
+function voiceBox(){loadVoices();return `<div id="dkVoiceBox" style="margin-top:16px;padding:12px;border:2px dashed #e3dbff;border-radius:14px;font-size:15px">${voiceInner()}</div>`;}
+function drawVoice(){const b=document.getElementById('dkVoiceBox');if(b){b.innerHTML=voiceInner();bindVoice();}}
 function bindVoice(){const v=document.getElementById('dkVoice');if(v)v.onchange=()=>{P.voice=v.value;saveP();dkSay('Hej! Nu skal vi skrive diktat.');};
   const r=document.getElementById('dkRate');if(r)r.onchange=()=>{P.rate=+r.value;saveP();dkSay('Egernet hopper fra træ til træ.');};}
 
@@ -233,7 +242,7 @@ window.dkList=()=>{showText=false;renderList();};
 window.dkOpen=openD;
 window.dkTab=k=>{tab=k;showText=false;renderD();};
 window.dkLevel=l=>{P.level=l;saveP();curD?renderD():renderList();};
-window.dkSayTest=()=>dkSay('Hej! Jeg læser diktaten op for dig.');
+window.dkSayTest=()=>dkSay('Hej! Jeg læser diktaten op for dig.',0,ok=>{vState=ok?'ok':'fail';loadVoices();drawVoice();});
 window.openDiktat=()=>{go('diktat');loadData();if(D){renderList();refresh();}else renderLock();};
 function homeLabel(){const a=document.getElementById('bDkT'),b=document.getElementById('bDkS');if(a)a.textContent=T('btn');if(b)b.textContent=T('btnSub');}
 if(typeof renderHome==='function'){const _rh=renderHome;window.renderHome=function(){_rh.apply(this,arguments);homeLabel();};}

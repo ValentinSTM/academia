@@ -89,7 +89,7 @@ if('speechSynthesis' in window){loadVoices();try{speechSynthesis.addEventListene
 function dkSay(txt,rate,cb){
   try{const ss=window.speechSynthesis;if(!ss){cb&&cb(false);return;}
     const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=voices.find(x=>x.name===P.voice)||voices[0];if(v)UT.voice=v;UT.lang=v?v.lang.replace('_','-'):'da-DK';UT.rate=rate||P.rate;
-      if(cb){let ok=false;UT.onstart=()=>{ok=true;cb(true);};UT.onerror=e=>{if(!ok&&e.error!=='interrupted'&&e.error!=='canceled')cb(false,e.error);};setTimeout(()=>{if(!ok)cb(false);},4000);}
+      if(cb){let ok=false;UT.onstart=()=>{ok=true;cb(true);};UT.onerror=e=>{vErr=e.error||'?';if(!ok&&e.error!=='interrupted'&&e.error!=='canceled')cb(false,e.error);};setTimeout(()=>{if(!ok)cb(false);},4000);}
       ss.resume();ss.speak(UT);};
     if(ss.speaking||ss.pending){ss.cancel();setTimeout(go,150);}else go();
   }catch(e){}
@@ -132,11 +132,13 @@ function renderList(){
   ${voiceBox()}`;
   bindVoice();
 }
-let vState='';
+let vState='',vErr='';
+function diag(){let all=0;try{all=speechSynthesis.getVoices().length;}catch(e){}const cv=(navigator.userAgent.match(/Chrome\/(\d+)/)||[])[1]||'?',av=(navigator.userAgent.match(/Android ([\d.]+)/)||[])[1]||'?';
+  return `<div class="muted" style="font-size:12px;margin-top:6px">🔧 Android ${esc(av)} · Chrome ${esc(cv)} · voci/stemmer: ${all} (da: ${voices.length}) · ${esc(vErr||'-')}</div>`;}
 function voiceInner(){
   return `<b>🔊 ${T('voice')}</b>${voices.length?`<select id="dkVoice" style="width:100%;font-size:16px;padding:8px;margin:6px 0;border-radius:10px">${voices.map(v=>`<option ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:''}
    <p id="dkVMsg" style="margin:6px 0;${vState==='fail'?'color:var(--bad)':''}">${vState==='ok'?T('vOk'):vState==='fail'?T('vFail')+' '+T('noVoice'):T('vTest')}</p>
-   <div class="row"><span>${T('speed')}</span><input type="range" id="dkRate" min=".55" max="1.05" step=".05" value="${P.rate}" style="flex:1"><button class="btn sec sm" onclick="dkSayTest()">▶</button></div>`;
+   <div class="row"><span>${T('speed')}</span><input type="range" id="dkRate" min=".55" max="1.05" step=".05" value="${P.rate}" style="flex:1"><button class="btn sec sm" onclick="dkSayTest()">▶</button></div>${vState==='fail'?diag():''}`;
 }
 function voiceBox(){loadVoices();return `<div id="dkVoiceBox" style="margin-top:16px;padding:12px;border:2px dashed #e3dbff;border-radius:14px;font-size:15px">${voiceInner()}</div>`;}
 function drawVoice(){const b=document.getElementById('dkVoiceBox');if(b){b.innerHTML=voiceInner();bindVoice();}}

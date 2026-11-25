@@ -86,9 +86,12 @@ function loadVoices(){try{voices=speechSynthesis.getVoices().filter(v=>/^da/i.te
 function onVoices(){const n=voices.length;loadVoices();if(voices.length!==n&&document.getElementById('dkVoiceBox'))drawVoice();}
 if('speechSynthesis' in window){loadVoices();try{speechSynthesis.addEventListener('voiceschanged',onVoices);}catch(e){}
   [300,1000,2500,5000].forEach(ms=>setTimeout(onVoices,ms));}  // pe Android lista de voci vine uneori târziu
-function dkSay(txt,rate,cb){
+function dkSay(txt,rate,cb,mode){
   try{const ss=window.speechSynthesis;if(!ss){cb&&cb(false);return;}
-    const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=voices.find(x=>x.name===P.voice)||voices[0];if(v)UT.voice=v;UT.lang=v?v.lang.replace('_','-'):'da-DK';UT.rate=rate||P.rate;
+    const go=()=>{UT=new SpeechSynthesisUtterance(txt);const v=voices.find(x=>x.name===P.voice)||voices[0];
+      // „sys”: fără limbă setată → telefonul folosește limba lui implicită de citire (la ea: dansk)
+      if(v)UT.voice=v;const m=mode||P.lmode||'da';if(v)UT.lang=v.lang.replace('_','-');else if(m==='da')UT.lang='da-DK';
+      UT.rate=rate||P.rate;
       if(cb){let ok=false;UT.onstart=()=>{ok=true;cb(true);};UT.onerror=e=>{vErr=e.error||'?';if(!ok&&e.error!=='interrupted'&&e.error!=='canceled')cb(false,e.error);};setTimeout(()=>{if(!ok)cb(false);},4000);}
       ss.resume();ss.speak(UT);};
     if(ss.speaking||ss.pending){ss.cancel();setTimeout(go,150);}else go();
@@ -134,7 +137,7 @@ function renderList(){
 }
 let vState='',vErr='';
 function diag(){let all=0;try{all=speechSynthesis.getVoices().length;}catch(e){}const cv=(navigator.userAgent.match(/Chrome\/(\d+)/)||[])[1]||'?',av=(navigator.userAgent.match(/Android ([\d.]+)/)||[])[1]||'?';
-  return `<div class="muted" style="font-size:12px;margin-top:6px">🔧 Android ${esc(av)} · Chrome ${esc(cv)} · voci/stemmer: ${all} (da: ${voices.length}) · ${esc(vErr||'-')}</div>`;}
+  return `<div class="muted" style="font-size:12px;margin-top:6px">🔧 Android ${esc(av)} · Chrome ${esc(cv)} · voci/stemmer: ${all} (da: ${voices.length}) · ${esc(vErr||'-')}<br>${(()=>{try{return speechSynthesis.getVoices().map(v=>esc(v.lang+' '+v.name)).join(' | ');}catch(e){return '';}})()}</div>`;}
 function voiceInner(){
   return `<b>🔊 ${T('voice')}</b>${voices.length?`<select id="dkVoice" style="width:100%;font-size:16px;padding:8px;margin:6px 0;border-radius:10px">${voices.map(v=>`<option ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:''}
    <p id="dkVMsg" style="margin:6px 0;${vState==='fail'?'color:var(--bad)':''}">${vState==='ok'?T('vOk'):vState==='fail'?T('vFail')+' '+T('noVoice'):T('vTest')}</p>
@@ -244,7 +247,10 @@ window.dkList=()=>{showText=false;renderList();};
 window.dkOpen=openD;
 window.dkTab=k=>{tab=k;showText=false;renderD();};
 window.dkLevel=l=>{P.level=l;saveP();curD?renderD():renderList();};
-window.dkSayTest=()=>dkSay('Hej! Jeg læser diktaten op for dig.',0,ok=>{vState=ok?'ok':'fail';loadVoices();drawVoice();});
+window.dkSayTest=()=>{const txt='Hej! Jeg læser diktaten op for dig.';vErr='';
+  dkSay(txt,0,ok=>{if(ok){vState='ok';P.lmode='da';saveP();loadVoices();drawVoice();return;}
+    // a doua încercare: fără limbă setată (vocea implicită a telefonului)
+    dkSay(txt,0,ok2=>{vState=ok2?'ok':'fail';if(ok2){P.lmode='sys';saveP();}loadVoices();drawVoice();},'sys');},'da');};
 window.openDiktat=()=>{go('diktat');loadData();if(D){renderList();refresh();}else renderLock();};
 function homeLabel(){const a=document.getElementById('bDkT'),b=document.getElementById('bDkS');if(a)a.textContent=T('btn');if(b)b.textContent=T('btnSub');}
 if(typeof renderHome==='function'){const _rh=renderHome;window.renderHome=function(){_rh.apply(this,arguments);homeLabel();};}

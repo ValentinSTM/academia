@@ -285,6 +285,7 @@ label.ck input{width:24px;height:24px;flex:none}
   <button class="big-btn hero w3" onclick="openExamSetup()"><span class="ico">📝</span><span id="bExamT"></span><small id="bExamS"></small></button>
   <div class="remind" id="readRemind" onclick="startReadForm()"></div>
   <button class="big-btn hero w4" onclick="openRead()"><span class="ico">📚</span><span id="bReadT"></span><small id="bReadS"></small></button>
+  <button class="big-btn hero" style="background:linear-gradient(135deg,#c8341e,#f0803c)" onclick="openDiktat()"><span class="ico">📝</span><span id="bDkT">Diktat</span><small id="bDkS" style="color:#ffe9dc"></small></button>
   <div class="grid2">
     <button class="big-btn" id="bAssess" onclick="go('assessSetup')"><span class="ico">🔍</span><span data-t="btnAssess"></span><small data-t="btnAssessSub"></small></button>
     <button class="big-btn" onclick="openRoom()"><span class="ico">🏆</span><span data-t="btnRoom"></span><small data-t="btnRoomSub"></small></button>
@@ -377,6 +378,8 @@ label.ck input{width:24px;height:24px;flex:none}
 
 <!-- LEXICON -->
 <section class="screen" id="lex"><div class="card" id="lexBox"></div></section>
+<!-- DIKTAT (modul separat: diktat.js) -->
+<section class="screen" id="diktat"><div class="card" id="dkBox"></div></section>
 <!-- ROOM -->
 <section class="screen" id="room">
   <div class="card"><h2>🏆 <span data-t="btnRoom"></span></h2><div class="cups" id="roomCups"></div><button class="big-btn hero" style="margin:14px 0 0;background:linear-gradient(135deg,#0f97ad,#5b3cc4)" onclick="openLex(0)"><span class="ico">📖</span><span id="roomLexT"></span></button></div>
@@ -2912,5 +2915,6 @@ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 if(IS_TEST){$('testBanner').textContent=t('testBanner');$('testBanner').classList.remove('hidden');}
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
+<script src="diktat.js"></script>
 </body>
 </html>
